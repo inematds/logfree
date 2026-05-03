@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check app tests
+
+      - name: Migrations roundtrip (upgrade → downgrade → upgrade)
+        run: |
+          mkdir -p data
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Seed cidade_demo idempotente
+        run: |
+          python -m app.db.seed
+          python -m app.db.seed
+
+      - name: Unit + integration tests with coverage
+        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=75
+
+      - name: Authz coverage check
+        run: pytest tests/integration/test_admin.py::test_admin_csrf_ausente_403 -q

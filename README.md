@@ -6,6 +6,56 @@ Acesso por **bot Telegram** (motorista) e **web** (gestor/operador).
 
 ---
 
+## Setup (dev)
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+
+# Migrations + seed cidade_demo
+alembic upgrade head
+python -m app.db.seed
+
+# Bootstrap admin local
+logfree bootstrap-admin --email admin@local --password trocar-em-prod-12345 --cidade-id 1
+
+# Sobe o servidor
+uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+
+# Em outra janela: roda os testes
+pytest -q
+ruff check app tests
+```
+
+Variáveis de ambiente em `.env.example`. Em produção, configure pela plataforma (Fly secrets / Railway env).
+
+## Comandos úteis
+
+```bash
+logfree bootstrap-admin --email <e> --password <s> [--cidade-id <id>]
+logfree audit-verify                      # checa cadeia hash do evento_audit
+logfree audit-unblock --approver=... --motivo=...   # break-glass (precisa AUDIT_UNBLOCK_KEY)
+logfree flag-set --chave=ranking.osrm_enabled --valor=true
+logfree flag-set --chave=kill_switch.global --valor=true
+logfree replay-tombstones                 # pós-restore: re-anonimiza usuários tombstoned
+```
+
+Endpoints principais:
+
+- `POST /melhor-posto` — auth obrigatória (sessão admin OU `X-Bot-Token` + `X-Bot-User-Telegram-Id`).
+- `POST /bot/webhook/{path_secret}` — webhook Telegram (header `X-Telegram-Bot-Api-Secret-Token` validado).
+- `GET /admin/login`, `GET /admin/`, `GET /admin/postos/{cidade_id}` — UI HTMX.
+- `GET /internal/ready`, `GET /internal/metrics` — healthcheck e métricas.
+
+Plano completo: ver [`PLAN.md`](PLAN.md) (passou por 3 rodadas de revisão adversarial — engenharia, segurança, ops/SRE).
+
+## Runbooks
+
+[`runbook/README.md`](runbook/README.md) lista todos os runbooks (rollback, restore, audit chain break, OSRM degradação, segredos, capacidade, etc).
+
+---
+
 ## 1. Problema
 
 Motoristas de última milha perdem margem abastecendo no posto errado. A decisão é tomada pelo preço da placa, mas o que importa é o **custo efetivo por km**, que depende de:
