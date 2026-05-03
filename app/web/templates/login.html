@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}LogFree — Login{% endblock %}
+{% block content %}
+<h1>Login admin</h1>
+{% if error %}<p class="err">{{ error|e }}</p>{% endif %}
+<form method="post" action="/admin/login">
+  <label>Email <input type="email" name="email" required></label>
+  <label>Senha <input type="password" name="password" required></label>
+  <button type="submit">Entrar</button>
+</form>
+{% endblock %}

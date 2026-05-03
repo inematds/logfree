@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}LogFree — Admin{% endblock %}
+{% block content %}
+<h1>Admin LogFree</h1>
+<h2>Cidades</h2>
+<ul>
+{% for c in cidades %}
+  <li>
+    <a href="/admin/postos/{{ c.id }}">{{ c.nome|e }} / {{ c.uf|e }}</a>
+    {% if c.is_demo %} <small>(demo)</small>{% endif %}
+  </li>
+{% endfor %}
+</ul>
+
+<h2>Métricas</h2>
+<pre>{{ metrics|tojson(indent=2) }}</pre>
+{% endblock %}

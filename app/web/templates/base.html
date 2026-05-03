@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}LogFree{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+    h1, h2 { color: #222; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+    th { background: #f4f4f4; }
+    .err { color: #b00; }
+    form { margin: 1rem 0; }
+    input, select, button { padding: 6px 8px; margin-right: 6px; }
+    .nav a { margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/admin/">Início</a>
+    {% if user %}<span>logado como {{ user.email|e }}</span>{% endif %}
+  </div>
+  <hr>
+  {% block content %}{% endblock %}
+</body>
+</html>

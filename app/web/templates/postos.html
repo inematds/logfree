@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Postos — {{ cidade.nome|e }}{% endblock %}
+{% block content %}
+<h1>Postos — {{ cidade.nome|e }}</h1>
+<table>
+  <thead>
+    <tr><th>ID</th><th>Nome</th><th>Bandeira</th><th>Lat,Lng</th><th>Editar preço</th></tr>
+  </thead>
+  <tbody>
+  {% for p in postos %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td>{{ p.nome|e }}</td>
+      <td>{{ p.bandeira|e }}</td>
+      <td>{{ p.lat }}, {{ p.lng }}</td>
+      <td>
+        <form hx-post="/admin/preco" hx-headers='{"HX-CSRF-Token": "{{ csrf|e }}"}'>
+          <select name="combustivel_id">
+            {% for c in combustiveis %}<option value="{{ c.id }}">{{ c.codigo }}</option>{% endfor %}
+          </select>
+          <input type="hidden" name="posto_id" value="{{ p.id }}">
+          <input type="number" name="valor_centavos" min="1" max="4999999" required>
+          <button type="submit">Salvar</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
