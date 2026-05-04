@@ -6,49 +6,137 @@ Acesso por **bot Telegram** (motorista) e **web** (gestor/operador).
 
 ---
 
-## Setup (dev)
+## Como rodar (passo a passo)
+
+### 1. Setup local (uma vez)
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
+cd ~/projetos/logfree
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
-
-# Migrations + seed cidade_demo
-alembic upgrade head
-python -m app.db.seed
-
-# Bootstrap admin local
-logfree bootstrap-admin --email admin@local --password trocar-em-prod-12345 --cidade-id 1
-
-# Sobe o servidor
-uvicorn app.api.main:app --host 0.0.0.0 --port 8000
-
-# Em outra janela: roda os testes
-pytest -q
-ruff check app tests
 ```
 
-Variáveis de ambiente em `.env.example`. Em produção, configure pela plataforma (Fly secrets / Railway env).
+Pule o `python3 -m venv .venv` se já tiver `.venv` no projeto.
 
-## Comandos úteis
+### 2. DB + seed
 
 ```bash
-logfree bootstrap-admin --email <e> --password <s> [--cidade-id <id>]
-logfree audit-verify                      # checa cadeia hash do evento_audit
-logfree audit-unblock --approver=... --motivo=...   # break-glass (precisa AUDIT_UNBLOCK_KEY)
-logfree flag-set --chave=ranking.osrm_enabled --valor=true
-logfree flag-set --chave=kill_switch.global --valor=true
-logfree replay-tombstones                 # pós-restore: re-anonimiza usuários tombstoned
+alembic upgrade head           # cria tabelas + triggers
+python -m app.db.seed          # popula cidade_demo (15 postos, 6 combustíveis)
+logfree bootstrap-admin --email admin@local --password troca123-em-prod --cidade-id 1
 ```
 
-Endpoints principais:
+### 3. Sobe o servidor
+
+```bash
+uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Em outra aba, valide:
+
+```bash
+curl http://localhost:8000/internal/ready
+# {"status":"ok"}
+
+curl http://localhost:8000/internal/metrics
+```
+
+### 4. Bate na API
+
+```bash
+# Esperado 401: precisa de auth
+curl -X POST http://localhost:8000/melhor-posto \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "lat": -12.97, "lng": -38.50,
+    "combustivel": "gasolina_comum",
+    "autonomia_restante_km": 200,
+    "modo_abastecimento": "completo",
+    "top_n": 3
+  }'
+
+# Com bot service token (motorista demo do seed: telegram_id=100001)
+curl -X POST http://localhost:8000/melhor-posto \
+  -H 'Content-Type: application/json' \
+  -H 'X-Bot-Token: dev-bot-token-change-me' \
+  -H 'X-Bot-User-Telegram-Id: 100001' \
+  -d '{
+    "lat": -12.97, "lng": -38.50,
+    "combustivel": "gasolina_comum",
+    "autonomia_restante_km": 200,
+    "modo_abastecimento": "completo",
+    "top_n": 3
+  }' | jq .
+```
+
+### 5. Admin web
+
+Abra <http://localhost:8000/admin/login> no browser, entre com `admin@local` + a senha. Você vê as cidades, lista de postos com formulário HTMX para registrar preço, métricas. Login errado, CSRF ausente e cross-city são bloqueados (testes cobrem).
+
+### 6. Testes
+
+```bash
+pytest -q                                   # todos (~98)
+pytest tests/unit -q                        # só unitários (rápido)
+pytest tests/integration -q                 # API + admin + bot
+pytest --cov=app --cov-report=term-missing  # com cobertura
+ruff check app tests                        # lint
+```
+
+### 7. CLI úteis
+
+```bash
+logfree audit-verify                                            # checa cadeia hash do evento_audit
+logfree audit-unblock --approver=admin@x --motivo="..."         # break-glass (precisa AUDIT_UNBLOCK_KEY)
+logfree flag-set --chave=ranking.osrm_enabled --valor=true
+logfree flag-set --chave=kill_switch.global --valor=true        # desliga /melhor-posto (503)
+logfree replay-tombstones                                       # pós-restore: re-anonimiza usuários tombstoned
+```
+
+### 8. Bot Telegram (opcional, só com token real)
+
+Não funciona sem token real. Se quiser testar:
+
+```bash
+# em .env
+TG_BOT_TOKEN=<seu-token-do-BotFather>
+TG_WEBHOOK_SECRET=$(openssl rand -hex 32)
+
+# expor pra fora (ngrok)
+ngrok http 8000
+
+# registrar webhook (use o MESMO segredo no path e no header)
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+  -d "url=https://<seu-host-ngrok>/bot/webhook/$TG_WEBHOOK_SECRET" \
+  -d "secret_token=$TG_WEBHOOK_SECRET"
+```
+
+Sem fazer isso, o webhook responde 503. Os fluxos do bot estão cobertos por testes mockando o JSON do Telegram.
+
+---
+
+### Endpoints principais
 
 - `POST /melhor-posto` — auth obrigatória (sessão admin OU `X-Bot-Token` + `X-Bot-User-Telegram-Id`).
 - `POST /bot/webhook/{path_secret}` — webhook Telegram (header `X-Telegram-Bot-Api-Secret-Token` validado).
 - `GET /admin/login`, `GET /admin/`, `GET /admin/postos/{cidade_id}` — UI HTMX.
 - `GET /internal/ready`, `GET /internal/metrics` — healthcheck e métricas.
 
-Plano completo: ver [`PLAN.md`](PLAN.md) (passou por 3 rodadas de revisão adversarial — engenharia, segurança, ops/SRE).
+### Erros comuns
+
+| Sintoma | Causa | Solução |
+|---|---|---|
+| `no such table: alembic_version` | migration não rodou | `alembic upgrade head` |
+| `combustivel desconhecido` na API | falta seed da 2a migration | `alembic upgrade head` (gera os 6 combustíveis) |
+| `flock ocupado` ao iniciar uvicorn | outro processo segurando o owner lease | `pkill -f uvicorn` (ou cheque o PID que está com o lock) |
+| `401` em `/melhor-posto` com bot token | `X-Bot-Token` errado, `X-Bot-User-Telegram-Id` inexistente, ou usuário sem `opt_in_lgpd=1` | Confira `.env` e `usuario.opt_in_lgpd`; o motorista demo do seed (`telegram_id=100001`) já vem com opt-in. |
+| `403` em `/melhor-posto` | sem opt-in LGPD | bot deve mandar `/aceitar_termos` antes de `/melhor` |
+
+Variáveis de ambiente em `.env.example`. Em produção, configure pela plataforma (Fly secrets / Railway env).
+
+Plano completo: ver [`PLAN.md`](PLAN.md) (3 rodadas de revisão adversarial — engenharia, segurança, ops/SRE).
 
 ## Runbooks
 
