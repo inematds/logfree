@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LogFree — menor custo real por km</title>
+<meta name="description" content="LogFree: API FastAPI + bot Telegram que indica o posto com melhor custo real por km para frotas de última milha.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0c10; --bg2:#14141b; --card:#16161e; --line:#272730;
+    --txt:#e9e9ee; --mut:#9a9aa6; --amb:#E2A23B; --amb2:#f0c070; --sky:#38bdf8; --pro:#cbd5e1;
+    color-scheme:dark;
+  }
+  body.light{
+    --bg:#f6f7f9; --bg2:#eceef2; --card:#ffffff; --line:#e1e3ea;
+    --txt:#1a1a22; --mut:#5b5b68; --amb:#b9791d; --amb2:#a16207; --sky:#0369a1; --pro:#b45309;
+    color-scheme:light;
+  }
+  body.light .hero .glow{opacity:.5}
+  body.light pre{background:#0e0e14;color:#d6d6e0}
+  body.light pre .c{color:#8a8a98}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.65 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:Sora,sans-serif;line-height:1.15;margin:0}
+  a{color:var(--amb);text-decoration:none}
+  code,pre{font-family:"JetBrains Mono",monospace}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 22px}
+  .mut{color:var(--mut)} .amb{color:var(--amb)}
+  .chip{display:inline-block;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amb);font-weight:600;font-family:Sora}
+  nav{position:sticky;top:0;z-index:30;backdrop-filter:blur(12px);background:rgba(12,12,16,.78);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:22px;height:60px}
+  nav .brand{display:flex;align-items:center;gap:8px;font-family:Sora;font-weight:800;letter-spacing:-.02em;color:var(--amb)}
+  nav .brand .emoji{font-size:1.25rem}
+  nav .sep{color:var(--mut);opacity:.45}
+  nav .inema{color:var(--sky);font-weight:600;font-size:.88rem;font-family:Sora}
+  nav .inema:hover{filter:brightness(1.15)}
+  nav .pro{color:var(--pro);font-weight:600;font-size:.88rem;font-family:Sora}
+  nav .pro:hover{filter:brightness(1.15)}
+  nav .clubpro{display:inline-flex;align-items:center;gap:6px}
+  nav .links{margin-left:auto;display:flex;align-items:center;gap:20px;font-size:.92rem}
+  nav .links a.sec{color:var(--mut)} nav .links a.sec:hover{color:var(--txt)}
+  .tgl{background:var(--bg2);border:1px solid var(--line);color:var(--txt);width:38px;height:38px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem}
+  .tgl:hover{border-color:var(--amb)}
+  .btn{display:inline-block;background:var(--amb);color:#1a1206;font-weight:600;padding:.6em 1.05em;border-radius:10px;font-family:Sora}
+  .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+  @media(max-width:760px){nav .links a.sec{display:none}}
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .hero .glow{position:absolute;inset:-40% -20% auto auto;width:70%;height:600px;background:radial-gradient(closest-side,rgba(226,162,59,.22),transparent 70%);pointer-events:none}
+  .hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:74px 22px}
+  .hero h1{font-size:clamp(2.2rem,5vw,3.5rem);font-weight:800;letter-spacing:-.025em}
+  .hero p.lead{font-size:1.18rem;color:var(--mut);margin:1.1em 0 1.6em;max-width:34ch}
+  .hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+  .hero figure{margin:0;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px -30px #000}
+  .hero figure img{width:100%;display:block}
+  @media(max-width:780px){.hero .wrap{grid-template-columns:1fr;padding:48px 22px}}
+  section{padding:62px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:800;letter-spacing:-.02em}
+  section .sub{color:var(--mut);margin:.6em 0 2em;max-width:62ch}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g3,.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:540px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h3{font-size:1.05rem;margin-bottom:.4em}
+  .card p{color:var(--mut);font-size:.92rem;margin:0}
+  .num{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:rgba(226,162,59,.14);color:var(--amb);font-family:Sora;font-weight:800;font-size:.9rem;margin-bottom:.7em}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .flow span{background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:.45em .9em;font-size:.85rem;font-family:Sora;font-weight:600}
+  .flow .arr{color:var(--amb);border:none;background:none;padding:0 .1em}
+  pre{background:#0a0a0e;border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;font-size:.86rem;line-height:1.6;color:#d6d6e0}
+  pre .c{color:#6f6f7c} pre .k{color:var(--amb2)} pre .s{color:#9ece6a}
+  .step{display:grid;grid-template-columns:46px 1fr;gap:16px;margin-bottom:26px}
+  .step .b{width:46px;height:46px;border-radius:12px;background:var(--amb);color:#1a1206;font-family:Sora;font-weight:800;font-size:1.25rem;display:flex;align-items:center;justify-content:center}
+  .step h3{font-size:1.12rem;margin-bottom:.3em}
+  .step p{color:var(--mut);margin:.2em 0 .7em}
+  .ex{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:680px){.ex{grid-template-columns:1fr}}
+  .ex figure{margin:0;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--card)}
+  .ex figure img{width:100%;display:block}
+  .ex figcaption{padding:12px 14px;font-size:.88rem;color:var(--mut);background:var(--card)}
+  .ex pre{margin:0;border-radius:14px 14px 0 0;border-bottom:none}
+  .phase{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .phase:last-child{border:none}
+  .phase .tag{flex:0 0 92px;font-family:Sora;font-weight:800;color:var(--amb)}
+  .phase .d strong{display:block;margin-bottom:.2em}
+  .phase .d span{color:var(--mut);font-size:.92rem}
+  footer{padding:46px 0;text-align:center;color:var(--mut);font-size:.9rem}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.3em .8em;font-size:.78rem;color:var(--mut);margin:0 4px}
+  table.err{width:100%;border-collapse:collapse;font-size:.88rem}
+  table.err th,table.err td{text-align:left;padding:.55em .7em;border-bottom:1px solid var(--line)}
+  table.err th{color:var(--mut);font-family:Sora;font-weight:600}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="#top"><span class="emoji">⛽</span> LogFree</a>
+  <span class="sep">|</span>
+  <span class="clubpro">
+    <a class="inema" href="https://inema.club" target="_blank" rel="noopener">INEMA.CLUB</a>
+    <span class="sep">-</span>
+    <a class="pro" href="https://inema.pro" target="_blank" rel="noopener">PRO</a>
+  </span>
+  <div class="links">
+    <a class="sec" href="#oque">O que é</a>
+    <a class="sec" href="#fluxo">Como funciona</a>
+    <a class="sec" href="#guia">Guia de uso</a>
+    <a class="sec" href="#exemplos">Exemplos</a>
+    <a class="sec" href="#roadmap">Roadmap</a>
+    <button class="tgl" id="themeToggle" aria-label="Alternar tema" title="Alternar tema">🌙</button>
+    <a class="btn" href="https://github.com/inematds/logfree" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</div></nav>
+
+<header class="hero" id="top">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div>
+      <span class="chip">Logística · última milha</span>
+      <h1>O posto mais barato <span class="amb">pra você</span>, não pra bomba</h1>
+      <p class="lead">API FastAPI + bot Telegram que calcula o custo real por km — preço do litro, consumo do veículo e desvio até o posto — e indica o melhor posto pra frota de moto, carro ou caminhão leve em última milha.</p>
+      <div class="cta">
+        <a class="btn" href="#guia">Começar o guia</a>
+        <a class="btn ghost" href="https://github.com/inematds/logfree" target="_blank" rel="noopener">Ver no GitHub</a>
+      </div>
+    </div>
+    <figure><img src="assets/hero.png" alt="Ilustração do LogFree — posto de combustível e frota de última milha"></figure>
+  </div>
+</header>
+
+<section id="oque"><div class="wrap">
+  <span class="chip">O que é</span>
+  <h2>Custo efetivo por km, não preço bruto na bomba</h2>
+  <p class="sub">Waze e Google mostram rota. Apps de preço mostram preço. Nenhum junta os dois com o perfil do veículo e o contexto de entrega urbana. O LogFree junta.</p>
+  <div class="grid g3">
+    <div class="card"><h3>⛽ Custo real por km</h3><p>Considera preço do litro, consumo (km/l) do veículo e o desvio de ida e volta até o posto — não só o preço na placa.</p></div>
+    <div class="card"><h3>🤖 Bot Telegram</h3><p>O motorista consulta pelo Telegram (onde ele já vive): envia localização e recebe o top posto recomendado, com auth por token de serviço.</p></div>
+    <div class="card"><h3>🔒 Admin web com auditoria</h3><p>Painel HTMX pra operador atualizar preço do dia, com login por sessão, CSRF, isolamento por cidade e trilha de auditoria em cadeia de hash.</p></div>
+  </div>
+</div></section>
+
+<section id="fluxo"><div class="wrap">
+  <span class="chip">Como funciona</span>
+  <h2>Do pedido ao posto recomendado</h2>
+  <p class="sub">Fluxo do endpoint principal <code>POST /melhor-posto</code>: recebe posição + combustível, calcula custo efetivo por posto ativo da cidade e devolve o ranking.</p>
+  <div class="flow">
+    <span>Motorista envia lat/lng + combustível</span><span class="arr">→</span>
+    <span>Auth (sessão admin ou X-Bot-Token)</span><span class="arr">→</span>
+    <span>Filtra postos ativos na bbox da cidade</span><span class="arr">→</span>
+    <span>Calcula custo efetivo por km (Haversine)</span><span class="arr">→</span>
+    <span>Ordena e retorna top N</span>
+  </div>
+  <div class="grid g3" style="margin-top:26px">
+    <div class="card"><h3>📥 Entrada</h3><p>Posição, combustível, autonomia restante e modo de abastecimento (completo/parcial), via API ou bot.</p></div>
+    <div class="card"><h3>🧮 Cálculo</h3><p>Distância até cada posto, litros do desvio, custo do desvio rateado pela capacidade do tanque, soma ao preço do litro.</p></div>
+    <div class="card"><h3>📤 Saída</h3><p>Top N postos por custo efetivo, com preço, distância, desvio e economia estimada vs. o mais próximo.</p></div>
+  </div>
+</div></section>
+
+<section id="pre"><div class="wrap">
+  <span class="chip">Pré-requisitos</span>
+  <h2>O que precisa estar no ar</h2>
+  <p class="sub">Stack local: Python 3.12 + SQLite (arquivo, zero infra externa). Bot Telegram é opcional.</p>
+  <div class="grid g3">
+    <div class="card"><h3>Python 3.12</h3><p>Ambiente virtual + dependências do projeto.</p><pre><span class="c"># setup</span>
+<span class="k">python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"</span></pre></div>
+    <div class="card"><h3>.env local</h3><p>Copiado do exemplo — SQLite local, cookie secret, token do bot de serviço.</p><pre><span class="c"># configuração</span>
+<span class="k">cp .env.example .env</span></pre></div>
+    <div class="card"><h3>Token do Telegram (opcional)</h3><p>Só necessário se for testar o bot de verdade — sem ele, o webhook responde 503 e os testes seguem cobertos por mock.</p><pre><span class="c"># em .env</span>
+<span class="k">TG_BOT_TOKEN=&lt;seu-token-do-BotFather&gt;
+TG_WEBHOOK_SECRET=$(openssl rand -hex 32)</span></pre></div>
+  </div>
+</div></section>
+
+<section id="guia"><div class="wrap">
+  <span class="chip">Guia de uso · passo a passo</span>
+  <h2>Do zero ao primeiro /melhor-posto</h2>
+  <p class="sub">Comandos reais, na ordem em que o README do projeto recomenda rodar.</p>
+
+  <div class="step"><div class="b">1</div><div>
+    <h3>Setup local</h3>
+    <p>Cria o venv, instala em modo dev e copia o `.env` de exemplo.</p>
+<pre><span class="k">cd ~/projetos/logfree
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env</span>  <span class="c"># pule o venv se já existir .venv</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">2</div><div>
+    <h3>Banco + seed + admin</h3>
+    <p>Roda as migrations, popula a cidade demo (15 postos, 6 combustíveis) e cria o primeiro usuário admin.</p>
+<pre><span class="k">alembic upgrade head</span>           <span class="c"># cria tabelas + triggers</span>
+<span class="k">python -m app.db.seed</span>          <span class="c"># popula cidade_demo</span>
+<span class="k">logfree bootstrap-admin --email admin@local --password troca123-em-prod --cidade-id 1</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">3</div><div>
+    <h3>Sobe o servidor</h3>
+    <p>API + admin web num único processo Uvicorn, com reload em dev.</p>
+<pre><span class="k">uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload</span></pre>
+<pre><span class="c"># em outra aba, valide</span>
+<span class="k">curl http://localhost:8000/internal/ready</span>
+<span class="s">{"status":"ok"}</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">4</div><div>
+    <h3>Bate no endpoint principal</h3>
+    <p>Sem auth dá 401. Com o token de serviço do bot e o motorista demo do seed (telegram_id 100001), retorna o ranking.</p>
+<pre><span class="k">curl -X POST http://localhost:8000/melhor-posto \
+  -H 'Content-Type: application/json' \
+  -H 'X-Bot-Token: dev-bot-token-change-me' \
+  -H 'X-Bot-User-Telegram-Id: 100001' \
+  -d '{
+    "lat": -12.97, "lng": -38.50,
+    "combustivel": "gasolina_comum",
+    "autonomia_restante_km": 200,
+    "modo_abastecimento": "completo",
+    "top_n": 3
+  }' | jq .</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">5</div><div>
+    <h3>Admin web</h3>
+    <p>Painel HTMX pra ver cidades, editar preço de posto e acompanhar métricas — login errado, CSRF ausente e cross-city são bloqueados e cobertos por teste.</p>
+<pre><span class="k">http://localhost:8000/admin/login</span>  <span class="c"># entre com admin@local + a senha do bootstrap</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">6</div><div>
+    <h3>Testes e lint</h3>
+    <p>~98 testes cobrindo API, admin e bot; ruff pro lint.</p>
+<pre><span class="k">pytest -q</span>                                   <span class="c"># todos</span>
+<span class="k">pytest tests/unit -q</span>                        <span class="c"># só unitários</span>
+<span class="k">pytest tests/integration -q</span>                 <span class="c"># API + admin + bot</span>
+<span class="k">pytest --cov=app --cov-report=term-missing</span>  <span class="c"># com cobertura</span>
+<span class="k">ruff check app tests</span>                        <span class="c"># lint</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">7</div><div>
+    <h3>CLI de operação</h3>
+    <p>Comandos operacionais: auditoria, break-glass, feature flags e replay pós-restore.</p>
+<pre><span class="k">logfree audit-verify</span>                                            <span class="c"># checa cadeia hash do evento_audit</span>
+<span class="k">logfree audit-unblock --approver=admin@x --motivo="..."</span>         <span class="c"># break-glass (precisa AUDIT_UNBLOCK_KEY)</span>
+<span class="k">logfree flag-set --chave=ranking.osrm_enabled --valor=true</span>
+<span class="k">logfree flag-set --chave=kill_switch.global --valor=true</span>        <span class="c"># desliga /melhor-posto (503)</span>
+<span class="k">logfree replay-tombstones</span>                                       <span class="c"># pós-restore: re-anonimiza usuários tombstoned</span></pre>
+  </div></div>
+
+  <div class="step"><div class="b">8</div><div>
+    <h3>Bot Telegram (opcional)</h3>
+    <p>Só funciona com token real do BotFather. Exponha via ngrok e registre o webhook com o mesmo segredo no path e no header.</p>
+<pre><span class="k">ngrok http 8000</span>
+
+<span class="c"># registrar webhook (mesmo segredo no path e no header)</span>
+<span class="k">curl "https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook" \
+  -d "url=https://&lt;seu-host-ngrok&gt;/bot/webhook/$TG_WEBHOOK_SECRET" \
+  -d "secret_token=$TG_WEBHOOK_SECRET"</span></pre>
+  </div></div>
+</div></section>
+
+<section id="exemplos"><div class="wrap">
+  <span class="chip">Exemplos</span>
+  <h2>Endpoints principais e erros comuns</h2>
+  <p class="sub">O projeto ainda não tem screenshots publicados — os exemplos abaixo são requisição/resposta reais do próprio README.</p>
+  <div class="ex">
+    <figure>
+<pre><span class="c"># sem auth → 401</span>
+<span class="k">curl -X POST http://localhost:8000/melhor-posto \
+  -H 'Content-Type: application/json' \
+  -d '{"lat": -12.97, "lng": -38.50,
+       "combustivel": "gasolina_comum",
+       "autonomia_restante_km": 200,
+       "modo_abastecimento": "completo",
+       "top_n": 3}'</span></pre>
+      <figcaption>POST /melhor-posto sem token de serviço nem sessão admin — bloqueado por design.</figcaption>
+    </figure>
+    <figure>
+      <table class="err">
+        <tr><th>Sintoma</th><th>Solução</th></tr>
+        <tr><td><code>no such table: alembic_version</code></td><td><code>alembic upgrade head</code></td></tr>
+        <tr><td><code>combustivel desconhecido</code></td><td><code>alembic upgrade head</code> (gera os 6 combustíveis)</td></tr>
+        <tr><td><code>flock ocupado</code> ao iniciar uvicorn</td><td><code>pkill -f uvicorn</code></td></tr>
+        <tr><td><code>401</code> com bot token</td><td>confira <code>X-Bot-Token</code> e <code>opt_in_lgpd=1</code> do usuário</td></tr>
+        <tr><td><code>403</code> em /melhor-posto</td><td>bot precisa mandar <code>/aceitar_termos</code> antes de <code>/melhor</code></td></tr>
+      </table>
+      <figcaption>Erros comuns e a solução, direto do runbook do projeto.</figcaption>
+    </figure>
+  </div>
+</div></section>
+
+<section id="roadmap"><div class="wrap">
+  <span class="chip">Roadmap</span>
+  <h2>Do MVP à fase de inteligência</h2>
+  <p class="sub">Fases do plano do projeto (ver <code>PLAN.md</code> no repo).</p>
+  <div class="phase"><div class="tag">Fase 1</div><div class="d"><strong>MVP</strong><span>Cidade piloto, bot + web, cadastro manual de postos e preços.</span></div></div>
+  <div class="phase"><div class="tag">Fase 2</div><div class="d"><strong>Escala operacional</strong><span>Migração pra Supabase (Postgres + PostGIS), multi-cidade, atualização de preço pelo bot, OCR de bomba.</span></div></div>
+  <div class="phase"><div class="tag">Fase 3</div><div class="d"><strong>Inteligência</strong><span>Previsão de preço por posto, detecção de anomalia, ranking personalizado por histórico do motorista.</span></div></div>
+  <div class="phase"><div class="tag">Fase 4</div><div class="d"><strong>Frota</strong><span>Dashboard de economia agregada, integração com rastreador, relatório fiscal, API pra TMS.</span></div></div>
+  <div class="phase"><div class="tag">Fase 5</div><div class="d"><strong>Rede</strong><span>Expansão nacional, freemium, parcerias com redes de postos.</span></div></div>
+</div></section>
+
+<footer>
+  <div class="wrap">
+    <div class="pill">FastAPI</div><div class="pill">SQLAlchemy + Alembic</div><div class="pill">python-telegram-bot</div><div class="pill">HTMX</div><div class="pill">SQLite</div>
+    <p style="margin-top:18px">LogFree · menor custo real por km para frotas de última milha ·
+      <a href="https://github.com/inematds/logfree">inematds/logfree</a> ·
+      <a href="https://inema.club">INEMA.CLUB</a></p>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var KEY='logfree-theme';
+    var b=document.body, t=document.getElementById('themeToggle');
+    if(localStorage.getItem(KEY)==='light'){ b.classList.add('light'); t.textContent='☀️'; }
+    t.addEventListener('click',function(){
+      var light=b.classList.toggle('light');
+      t.textContent=light?'☀️':'🌙';
+      localStorage.setItem(KEY, light?'light':'dark');
+    });
+  })();
+</script>
+</body>
+</html>
